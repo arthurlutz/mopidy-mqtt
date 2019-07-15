@@ -1,3 +1,5 @@
+Based on ![magcode's](https://github.com/magcode) ![work](https://github.com/magcode/mopidy-mqtt).
+
 # Features
 
 This Mopidy Frontend Extension allows you to control Mopidy with MQTT and retrieve some information from Mopidy via MQTT.
