@@ -1,0 +1,18 @@
+dist: xenial
+language: python
+
+python:
+  - "2.7"
+
+virtualenv:
+  system_site_packages: true
+
+env:
+  - TOX_ENV=flake8
+
+install:
+  - "pip install tox"
+
+script:
+  - "tox -e $TOX_ENV"
+
