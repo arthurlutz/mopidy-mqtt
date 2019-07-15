@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 
 class Extension(ext.Extension):
 
-    dist_name = 'Mopidy-MQTT'
-    ext_name = 'mqtthook'
+    dist_name = 'Mopidy-MQTT-NG'
+    ext_name = 'mqtt'
     version = __version__
 
     def get_default_config(self):
@@ -22,13 +22,16 @@ class Extension(ext.Extension):
 
     def get_config_schema(self):
         schema = super(Extension, self).get_config_schema()
-        schema['topic'] = config.String()
+
         schema['mqtthost'] = config.String()
         schema['mqttport'] = config.Integer()
+        schema['topic'] = config.String()
+
         schema['username'] = config.String()
-        schema['password'] = config.String()
+        schema['password'] = config.Secret()
+
         return schema
 
     def setup(self, registry):
-        from .frontend import MQTTFrontend
+        from mopidy_mqtt.frontend import MQTTFrontend
         registry.add('frontend', MQTTFrontend)
