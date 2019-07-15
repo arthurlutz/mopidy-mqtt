@@ -4,7 +4,7 @@ from __future__ import unicode_literals
 import logging
 import time
 
-from mopidy import core
+from mopidy.core import CoreListener
 import paho.mqtt.client as mqtt
 import pykka
 
@@ -12,7 +12,7 @@ import pykka
 logger = logging.getLogger(__name__)
 
 
-class MQTTFrontend(pykka.ThreadingActor, core.CoreListener):
+class MQTTFrontend(pykka.ThreadingActor, CoreListener):
     def __init__(self, config, core):
         logger.info("mopidy_mqtt initializing ... ")
         self.core = core
@@ -23,11 +23,11 @@ class MQTTFrontend(pykka.ThreadingActor, core.CoreListener):
         self.mqttClient.on_message = self.mqtt_on_message
         self.mqttClient.on_connect = self.mqtt_on_connect
 
-        self.config = config["mqtthook"]
-        host = self.config["mqtthost"]
-        port = self.config["mqttport"]
+        self.config = config["mqtt"]
+        host = self.config["host"]
+        port = self.config["port"]
         self.topic = self.config["topic"]
-        if self.config["username"] and self.config["password"]:
+        if self.config.get("username") and self.config.get("password"):
             self.mqttClient.username_pw_set(
                 self.config["username"], password=self.config["password"]
             )
@@ -152,7 +152,7 @@ class MQTTFrontend(pykka.ThreadingActor, core.CoreListener):
 
 class MQTTHook:
     def __init__(self, frontend, core, config, client):
-        self.config = config["mqtthook"]
+        self.config = config["mqtt"]
         self.mqttclient = client
 
     def publish(self, topic, state):
