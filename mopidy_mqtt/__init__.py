@@ -23,12 +23,12 @@ class Extension(ext.Extension):
     def get_config_schema(self):
         schema = super(Extension, self).get_config_schema()
 
-        schema['mqtthost'] = config.String()
-        schema['mqttport'] = config.Integer()
+        schema['host'] = config.String()
+        schema['port'] = config.Integer()
         schema['topic'] = config.String()
 
-        schema['username'] = config.String()
-        schema['password'] = config.Secret()
+        schema['username'] = config.String(optional=True)
+        schema['password'] = config.Secret(optional=True)
 
         return schema
 
