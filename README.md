@@ -34,31 +34,4 @@ You can change the mixer volume from 0 to 100 via MQTT. Send the following:
 
 # Installation
 
-This is an example how to install on a Raspi:
-
-```
-cd ~
-git clone https://github.com/magcode/mopidy-mqtt.git
-cd mopidy-mqtt
-sudo python setup.py develop
-```
-Alternatively for a local installation you can change the last line to
-```
-python setup.py install --user
-```
-
-Now configure the following file: `/etc/mopidy/mopidy.conf`
-
-```
-[mqtthook]
-enabled = true
-mqtthost = <mqtt host>
-mqttport = <mqtt port>
-username = <mqtt username> (Optional)
-password = <mqtt password> (Optional)
-topic = <topic, e.g. home/livingroom/music>
-```
-
-Restart Mopidy with `sudo service mopidy restart`
-
-To check Mopidy log run `sudo tail -f /var/log/mopidy/mopidy.log`
+TODO: Update for the changes.
