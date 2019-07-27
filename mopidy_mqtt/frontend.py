@@ -162,12 +162,6 @@ class MQTTHook:
             if rc[0] == mqtt.MQTT_ERR_NO_CONN:
                 logger.warn("Error during publish: MQTT_ERR_NO_CONN")
             else:
-                logger.info(
-                    "Sent \033[1;32m"
-                    + state
-                    + "\033[0m to \033[1;32m"
-                    + full_topic
-                    + "\033[0m"
-                )
+                logger.info("Sent play state to %s" % full_topic)
         except Exception:
             logger.error("Unable to send", exc_info=True)
