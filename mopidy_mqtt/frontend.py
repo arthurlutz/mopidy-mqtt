@@ -2,166 +2,165 @@ from __future__ import absolute_import
 from __future__ import unicode_literals
 
 import logging
-import time
 
-from mopidy.core import CoreListener
-import paho.mqtt.client as mqtt
 import pykka
+from mopidy.core import CoreListener
+from .mqtt import Comms
 
 
-logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
+
+
+VOLUME_MAX = 100
+VOLUME_MIN = 0
+VOLUME_STEP = 5
 
 
 class MQTTFrontend(pykka.ThreadingActor, CoreListener):
     def __init__(self, config, core):
-        logger.info("mopidy_mqtt initializing ... ")
-        self.core = core
-        self.mqttClient = mqtt.Client(
-            client_id="mopidy-" + str(int(round(time.time() * 1000))),
-            clean_session=True,
-        )
-        self.mqttClient.on_message = self.mqtt_on_message
-        self.mqttClient.on_connect = self.mqtt_on_connect
-
-        self.config = config["mqtt"]
-        host = self.config["host"]
-        port = self.config["port"]
-        self.topic = self.config["topic"]
-        if self.config.get("username") and self.config.get("password"):
-            self.mqttClient.username_pw_set(
-                self.config["username"], password=self.config["password"]
-            )
-        self.mqttClient.connect_async(host, port, 60)
-
-        self.mqttClient.loop_start()
+        """
+        config (dict): The entire Mopidy configuration.
+        core (ActorProxy): Core actor for Mopidy Core API.
+        """
         super(MQTTFrontend, self).__init__()
-        self.MQTTHook = MQTTHook(self, core, config, self.mqttClient)
+        self.core = core
+        self.mqtt = Comms(frontend=self, config=config['mqtt'])
 
-    def mqtt_on_connect(self, client, userdata, flags, rc):
-        logger.info("Connected with result code %s" % rc)
-
-        rc = self.mqttClient.subscribe(self.topic + "/play")
-        if rc[0] != mqtt.MQTT_ERR_SUCCESS:
-            logger.warn("Error during subscribe: " + str(rc[0]))
-        else:
-            logger.info("Subscribed to " + self.topic + "/play")
-
-        for sub in ["/control", "/volume", "/info", "/search"]:
-            self.mqttClient.subscribe(self.topic + sub)
-            logger.info("sub: \033[1;33m" + self.topic + sub + "\033[0m")
-
-    def mqtt_on_message(self, mqttc, obj, msg):
-        logger.info(
-            "received a message on " + msg.topic + " with payload " +
-            str(msg.payload))
-        topPlay = self.topic + "/play"
-        topControl = self.topic + "/control"
-        topVolume = self.topic + "/volume"
-        topInfo = self.topic + "/info"
-        topSearch = self.topic + "/search"
-
-        if msg.topic == topPlay:
-            self.core.tracklist.clear()
-            self.core.tracklist.add(None, None, str(msg.payload), None)
-            self.core.playback.play()
-        elif msg.topic == topControl:
-            if msg.payload == "stop":
-                self.core.playback.stop()
-            elif msg.payload == "pause":
-                self.core.playback.pause()
-            elif msg.payload == "play":
-                self.core.playback.play()
-            elif msg.payload == "resume":
-                self.core.playback.resume()
-            elif msg.payload == "next":
-                self.core.playback.next()
-            elif msg.payload == "previous":
-                self.core.playback.previous()
-            elif msg.payload == "volplus":
-                vol = self.core.mixer.get_volume().get() + 10
-                if vol > 100:
-                    vol = 100
-                self.core.mixer.set_volume(vol)
-            elif msg.payload == "volminus":
-                vol = self.core.mixer.get_volume().get() - 10
-                if vol < 0:
-                    vol = 0
-                self.core.mixer.set_volume(vol)
-
-        elif msg.topic == topVolume:
-            try:
-                volume = int(msg.payload)
-                self.core.mixer.set_volume(volume)
-            except ValueError:
-                logger.warn("invalid payload for volume: " + msg.payload)
-        elif msg.topic == topInfo:
-            if msg.payload == "volume":
-                self.MQTTHook.publish(
-                    "/info", "volume;" +
-                    str(self.core.mixer.get_volume().get())
-                )
-            elif msg.payload == "list":
-                plist = self.core.playlists.as_list()
-                for a in plist.get():
-                    self.MQTTHook.publish("/lists", "%s;%s" % (a.name, a.uri))
-        elif msg.topic == topSearch:
-            search = msg.payload.replace("de ", "")
-            res = self.core.library.search(
-                {"any": [search]}, uris=["local:"]).get()
-            found = len(res[0].tracks)
-            logger.info("Adding %d tunes from %s" % (found, search))
-
-            if found > 0:
-                self.core.tracklist.clear()
-                self.core.tracklist.add(tracks=res[0].tracks)
-                self.MQTTHook.publish(
-                    "/state", "Adding %d tunes from %s" % (found, search)
-                )
-                self.core.mixer.set_volume(7)
-                self.core.playback.play()
+    def on_start(self):
+        """
+        Hook for doing any setup that should be done *after* the actor is
+        started, but *before* it starts processing messages.
+        """
+        log.debug('Starting MQTT frontend: %s', self)
+        self.mqtt.start()
 
     def on_stop(self):
-        logger.info("mopidy_mqtt shutting down ... ")
-        self.mqttClient.disconnect()
+        """
+        Hook for doing any cleanup that should be done *after* the actor has
+        processed the last message, and *before* the actor stops.
+        """
+        log.debug('Stopping MQTT frontend: %s', self)
+        self.mqtt.stop()
 
-    def stream_title_changed(self, title):
-        self.MQTTHook.publish("/nowplaying", title)
+    def on_failure(self, exception_type, exception_value, traceback):
+        """
+        Hook for doing any cleanup *after* an unhandled exception is raised,
+        and *before* the actor stops.
+        """
+        log.error('MQTT frontend failed: %s', exception_value)
 
     def playback_state_changed(self, old_state, new_state):
-        self.MQTTHook.publish("/state", new_state)
-        if new_state == "stopped":
-            self.MQTTHook.publish("/nowplaying", "stopped")
+        """
+        old_state (mopidy.core.PlaybackState) - the state before the change.
+        new_state (mopidy.core.PlaybackState) - the state after the change.
+        """
+        log.debug('MQTT playback state changed: %s', new_state)
+        self.mqtt.publish('state', new_state)
+
+    def stream_title_changed(self, title):
+        """
+        title (string) - the new stream title.
+        """
+        log.debug('MQTT title changed: %s', title)
+        self.mqtt.publish('nowplaying', title)
+
+    def track_playback_ended(self, tl_track, time_position):
+        """
+        tl_track (mopidy.models.TlTrack) - the track that was played before
+                                           playback stopped.
+        time_position (int) - the time position in milliseconds.
+        """
+        log.debug('MQTT track ended: %s', tl_track.track.name)
+        self.mqtt.publish('nowplaying', '')
 
     def track_playback_started(self, tl_track):
-        track = tl_track.track
-        artists = "unknown"
-        if len(track.artists) > 0:
-            artists = ", ".join(sorted([a.name for a in track.artists]))
-        if track.name is None:
-            tn = "stream"
+        """
+        tl_track (mopidy.models.TlTrack) - the track that just started playing.
+        """
+        log.debug('MQTT track started: %s', tl_track.track)
+        # TODO: Better name construction.
+        self.mqtt.publish('nowplaying', str(tl_track.track))
+
+    def volume_changed(self, volume):
+        """
+        volume (int) - the new volume in the range [0..100].
+        """
+        log.debug('MQTT volume changed: %s', volume)
+        self.mqtt.publish('info', 'volume;{}'.format(self.volume))
+
+    @property
+    def volume(self):
+        return self.core.mixer.get_volume().get()
+
+    @volume.setter
+    def volume(self, value):
+        self.core.mixer.set_volume(value)
+
+    def on_action_control(self, value):
+        """
+        General playback (and volume) control.
+        """
+        if value == 'stop':
+            return self.core.playback.stop()
+        if value == 'pause':
+            return self.core.playback.pause()
+        if value == 'play':
+            return self.core.playback.play()
+        if value == 'resume':
+            return self.core.playback.resume()
+
+        if value == 'next':
+            return self.core.playback.next()
+        if value == 'previous':
+            return self.core.playback.previous()
+
+        if value == 'volplus':
+            new_volume = min(self.volume + VOLUME_STEP, VOLUME_MAX)
+            self.volume = new_volume
+            return
+
+        if value == 'volminus':
+            new_volume = max(self.volume - VOLUME_STEP, VOLUME_MIN)
+            self.volume = new_volume
+            return
+
+        log.warn('Unknown MQTT playback control request: %s', value)
+
+    def on_action_play(self, value):
+        """
+        Clear tracklist, add specified track by URL, start the playback.
+        """
+        self.core.tracklist.clear()
+        self.core.tracklist.add(
+            tracks=None, at_position=None, uri=str(value), uris=None)
+        self.core.playback.play()
+
+    def on_action_volume(self, value):
+        """
+        Absolute volume control.
+        """
+        try:
+            new_volume = int(value)
+        except ValueError:
+            log.warn('Illegal value for volume: %s', value)
         else:
-            tn = track.name
-        self.MQTTHook.publish("/nowplaying", artists + ":" + tn)
-        try:
-            album = track.album
-            albumImage = next(iter(album.images))
-            self.MQTTHook.publish("/image", albumImage)
-        except Exception:
-            logger.debug("no image")
+            self.volume = new_volume
 
+    def on_action_info(self, value):
+        """
+        Inquiries about status.
+        """
+        if value == 'volume':
+            self.mqtt.publish('info', 'volume;{}'.format(self.volume))
+            return
 
-class MQTTHook:
-    def __init__(self, frontend, core, config, client):
-        self.config = config["mqtt"]
-        self.mqttclient = client
+        if value == 'list':
+            # TODO: Real current playlist info.
+            raise NotImplementedError('TODO')
+            return
 
-    def publish(self, topic, state):
-        full_topic = self.config["topic"] + topic
-        try:
-            rc = self.mqttclient.publish(full_topic, state)
-            if rc[0] == mqtt.MQTT_ERR_NO_CONN:
-                logger.warn("Error during publish: MQTT_ERR_NO_CONN")
-            else:
-                logger.info("Sent play state to %s" % full_topic)
-        except Exception:
-            logger.error("Unable to send", exc_info=True)
+    def on_action_search(self, value):
+        """
+        Library search.
+        """
+        raise NotImplementedError('TODO')

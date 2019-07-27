@@ -23,8 +23,8 @@ class Extension(ext.Extension):
     def get_config_schema(self):
         schema = super(Extension, self).get_config_schema()
 
-        schema['host'] = config.String()
-        schema['port'] = config.Integer()
+        schema['host'] = config.Hostname()
+        schema['port'] = config.Port(optional=True)
         schema['topic'] = config.String()
 
         schema['username'] = config.String(optional=True)
