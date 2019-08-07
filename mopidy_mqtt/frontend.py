@@ -150,9 +150,12 @@ class MQTTFrontend(pykka.ThreadingActor, CoreListener):
         """
         Inquiries about status.
         """
+        if value == 'state':
+            return self.mqtt.publish(
+                'state', self.core.playback.get_state().get())
+
         if value == 'volume':
-            self.mqtt.publish('info', 'volume;{}'.format(self.volume))
-            return
+            return self.mqtt.publish('info', 'volume;{}'.format(self.volume))
 
         if value == 'list':
             # TODO: Real current playlist info.
