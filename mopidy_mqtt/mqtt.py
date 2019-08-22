@@ -11,15 +11,20 @@ HANDLER_PREFIX = 'on_action_'
 
 
 class Comms(object):
-    def __init__(self, frontend, config):
+    def __init__(
+            self, frontend, host='localhost', port=1883, topic='mopidy',
+            user=None, password=None, **kwargs):
         """
         Configure MQTT communication client.
 
         frontend (MQTTFrontend): Instance of extension's frontend.
-        config (dict): Current extension configuration.
         """
         self.frontend = frontend
-        self.config = config
+        self.host = host
+        self.port = port
+        self.topic = topic
+        self.user = user
+        self.password = password
 
         self.client = mqtt.Client(
             client_id='mopidy-{}'.format(getpid()), clean_session=True)
@@ -30,16 +35,12 @@ class Comms(object):
         """
         Attempt connection to MQTT broker and initialise network loop.
         """
-        host = self.config.get('host', 'localhost')
-        port = self.config.get('port', 1883)
-        user = self.config.get('user', None)
-        password = self.config.get('password', None)
+        if self.user and self.password:
+            self.client.username_pw_set(
+                username=self.user, password=self.password)
 
-        if user and password:
-            self.client.username_pw_set(username=user, password=password)
-
-        self.client.connect_async(host=host, port=port)
-        log.debug('Connecting to MQTT broker at %s:%s', host, port)
+        self.client.connect_async(host=self.host, port=self.port)
+        log.debug('Connecting to MQTT broker at %s:%s', self.host, self.port)
         self.client.loop_start()
         log.debug('Started MQTT communication loop.')
 
@@ -52,22 +53,20 @@ class Comms(object):
 
     def _on_connect(self, client, userdata, flags, rc):
         log.info('Successfully connected to MQTT broker, result :%s', rc)
-        # Namespace for controlling Mopidy behaviour.
-        prefix = self.config.get('topic', 'mopidy')
 
         for name in dir(self.frontend):
             if not name.startswith(HANDLER_PREFIX):
                 continue
 
             suffix = name[len(HANDLER_PREFIX):]
-            topic = '{}/{}'.format(prefix, suffix)
-            result, _ = self.client.subscribe(topic)
+            full_topic = '{}/c/{}'.format(self.topic, suffix)
+            result, _ = self.client.subscribe(full_topic)
 
             if result == mqtt.MQTT_ERR_SUCCESS:
-                log.debug('Subscribed to MQTT topic: %s', topic)
+                log.debug('Subscribed to MQTT topic: %s', full_topic)
             else:
                 log.warn('Failed to subscribe to MQTT topic: %s, result: %s',
-                         topic, result)
+                         full_topic, result)
 
     def _on_message(self, client, userdata, message):
         topic = message.topic.split('/')[-1]
@@ -82,8 +81,7 @@ class Comms(object):
         handler(value=message.payload)
 
     def publish(self, subtopic, value):
-        prefix = self.config.get('topic', 'mopidy')
-        topic = '{}/{}'.format(prefix, subtopic)
+        full_topic = '{}/i/{}'.format(self.topic, subtopic)
 
-        log.debug('Publishing: %s to MQTT topic: %s', value, topic)
-        return self.client.publish(topic=topic, payload=value)
+        log.debug('Publishing: %s to MQTT topic: %s', value, full_topic)
+        return self.client.publish(topic=full_topic, payload=value)
