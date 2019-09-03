@@ -4,8 +4,25 @@ Based on ![magcode's](https://github.com/magcode) ![work](https://github.com/mag
 
 # Installation
 
-<!-- TOOD: Update -->
-<!-- TODO: Publish to PyPI -->
+Using pip:
+```
+pip install Mopidy-MQTT-NG
+```
+
+# Configuration
+
+You have to at least configure the MQTT broker access.
+By default it's assumed to be installed locally.
+
+```
+[mqtt]
+host = <mqtt broker address>
+port = 1883
+topic = mopidy
+```
+
+*Note*: Remember to also supply `username` and `password` options if your
+MQTT broker requires authentication.
 
 # Features
 
