@@ -10,7 +10,7 @@ log = logging.getLogger(__name__)
 HANDLER_PREFIX = 'on_action_'
 
 
-class Comms(object):
+class Comms:
     def __init__(
             self, frontend, host='localhost', port=1883, topic='mopidy',
             user=None, password=None, **kwargs):
@@ -78,7 +78,7 @@ class Comms(object):
 
         log.debug('Passing payload: %s to MQTT handler: %s',
                   message.payload, handler.__name__)
-        handler(value=message.payload)
+        handler(value=message.payload.decode('utf8'))
 
     def publish(self, subtopic, value):
         full_topic = '{}/i/{}'.format(self.topic, subtopic)
