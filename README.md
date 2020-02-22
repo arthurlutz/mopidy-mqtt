@@ -1,6 +1,6 @@
 Based on ![magcode's](https://github.com/magcode) ![work](https://github.com/magcode/mopidy-mqtt).
 
-[![Build Status](https://travis-ci.org/odiroot/mopidy-mqtt.svg?branch=master)](https://travis-ci.org/odiroot/mopidy-mqtt)
+[![CircleCI](https://circleci.com/gh/odiroot/mopidy-mqtt.svg?style=svg)](https://circleci.com/gh/odiroot/mopidy-mqtt)
 
 # Installation
 

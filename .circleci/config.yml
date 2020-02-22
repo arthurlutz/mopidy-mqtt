@@ -1,0 +1,20 @@
+version: 2.1
+
+orbs:
+  python: circleci/python@0.2.1
+
+jobs:
+  test:
+    docker:
+      - image: mopidy/ci-python:3.7
+    steps:
+      - checkout
+      - run:
+          name: Run tests
+          command: tox
+
+workflows:
+  main:
+    jobs:
+      - test
+
