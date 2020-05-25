@@ -61,8 +61,14 @@ Information topic `mopidy/i`.
 |:----------------:|:--------:|:-----------------------------------------------------------------:|
 | Playback control | `/plb`   | `play` / `stop` / `pause` / `resume` / `toggle` / `prev` / `next` |
 | Volume control   | `/vol`   | `=<int>` or `-<int>` or `+<int>`                                  |
-| Add to queue     | `/add`   | `<uri:str>`                                                       |
-| Load playlist    | `/loa`   | `<uri:str>`                                                       |
 | Clear queue      | `/clr`   | ` `                                                               |
-| Search tracks    | `/src`   | `<str>`                                                           |
+| Add to queue     | `/add`   | `<uri:str>`                                                       |
 | Request info     | `/inf`   | `state` / `volume` / `queue`                                  |
+
+Not implemented (yet!) 
+
+|       Kind       | Subtopic |                               Values                              |
+|:----------------:|:--------:|:-----------------------------------------------------------------:|
+| Load playlist    | `/loa`   | `<uri:str>`                                                       |
+| Search tracks    | `/src`   | `<str>`                                                           |
+
